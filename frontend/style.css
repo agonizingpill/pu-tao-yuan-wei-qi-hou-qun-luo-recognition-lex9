@@ -136,3 +136,15 @@ form > label,form > .fields {width:100%}
   .login-wrap {min-height:0}.actor {font-size:.74rem;gap:.55rem}
 }
 @media (prefers-reduced-motion:reduce) {*,*::before,*::after {animation:none!important;transition:none!important}}
+
+/* Probe inspection works orders */
+.evidence-fold {border-top:1px solid var(--rule);padding:.5rem 0;margin:.4rem 0}
+.evidence-fold summary {font-weight:700;color:var(--vine);font-size:.9rem;display:flex;flex-wrap:wrap;gap:.2rem .6rem}
+.evidence-fold summary small {font-weight:400;color:var(--muted);font-size:.79rem}
+.evidence-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:1rem;margin-top:.5rem}
+.evidence-grid h4 {margin:.2rem 0 .3rem;font-size:.86rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.evidence-grid .table-wrap {margin:0}
+.evidence-grid table {font-size:.82rem}
+.inspection-sheet h3 {display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.inspection-sheet h4 {margin:1.05rem 0 .3rem;font-size:.95rem}
+@media (max-width:767px) {.evidence-grid {grid-template-columns:1fr}}

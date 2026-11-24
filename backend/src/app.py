@@ -11,7 +11,7 @@ from redis.exceptions import RedisError
 
 from backend.scripts.seed_demo import seed
 from .operations_evidence import router as operations_evidence
-from . import clusters, fieldbook, irrigation, schemas
+from . import clusters, fieldbook, inspection, irrigation, schemas
 from .auth import check_password, identity, issue, require
 from .db import EVIDENCE_DIR, QUEUE, connect, lock_ledger, migrate, redis_client
 from .domain import Role
@@ -227,3 +227,36 @@ def observe(data: schemas.HarvestInput, user=editable):
 def audit(_user=supervised):
     with connect() as db:
         return db.execute('SELECT * FROM field_event ORDER BY id DESC LIMIT 100').fetchall()
+
+
+@app.get('/inspection')
+def inspection_board(state: str | None = None, _user=readable):
+    with connect() as db:
+        return {'orders': inspection.orders(db, state), 'shifts': inspection.shifts(db)}
+
+
+@app.get('/inspection/orders/{order_id}')
+def inspection_order(order_id: int, _user=readable):
+    with connect() as db:
+        return inspection.order(db, order_id)
+
+
+@app.post('/inspection/shifts/recompute', status_code=202)
+def recompute_shift(data: schemas.ShiftInput, user=editable):
+    with connect() as db:
+        lock_ledger(db)
+        return inspection.evaluate_shift(db, data.observed_day, data.slot, user['name'])
+
+
+@app.post('/inspection/orders/{order_id}/accept')
+def accept_order(order_id: int, user=editable):
+    with connect() as db:
+        lock_ledger(db)
+        return inspection.accept(db, order_id, user['name'])
+
+
+@app.post('/inspection/orders/{order_id}/review')
+def review_order(order_id: int, data: schemas.ReviewInput, user=supervised):
+    with connect() as db:
+        lock_ledger(db)
+        return inspection.review(db, order_id, data.outcome, data.reason, user['name'])

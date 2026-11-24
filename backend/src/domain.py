@@ -25,4 +25,17 @@ class RoundState(StrEnum):
     CANCELLED = 'cancelled'
 
 
+class ShiftState(StrEnum):
+    INSUFFICIENT = 'insufficient'
+    CLEAR = 'clear'
+    ANOMALY = 'anomaly'
+
+
+class InspectionState(StrEnum):
+    OPEN = 'open'
+    ACCEPTED = 'accepted'
+    PENDING_REVIEW = 'pending_review'
+    REVOKED = 'revoked'
+
+
 MINUTES = {Profile.COOL: 20, Profile.BALANCED: 35, Profile.WARM: 50}

@@ -10,7 +10,7 @@
 |---|---|---|
 | `operator` | 田间记录员 | 建档和补采、提交模型、排灌和改排、登记完灌与采收观察 |
 | `supervisor` | 灌溉主管 | 拥有记录员权限，可签核或退回候选标签、取消轮次、查审计 |
-| `viewer` | 酿造查看岗 | 查看四个业务页，可追溯拟合证据、标签与采收记录 |
+| `viewer` | 酿造查看岗 | 查看业务页，可追溯拟合证据、标签、采收记录与巡检判断 |
 
 三个演示账号的密码均为 `Vineyard271!`。仪表与表单使用中国标准时间（UTC+08:00）。
 
@@ -24,6 +24,21 @@
 6. 06:55 灌溉主管核验备用探头并填写确认理由，北坡生效标签变为暖干 v2，旧轮次被标为待改排。
 7. 08:20 按新标签重新编排 50 分钟，09:15 登记完灌。原定时长与标签依据保留在轮次账及审计中。
 8. 10:30 酿造组请记录员从北坡三行抽取 50 粒，录入 23.1 °Bx，观察单关联 `IR-1121A` 和暖干 v2。
+9. 11:10 打开「探头巡检」。11 月 21 日全园日间偏冷，扣除共同偏移后 `V-06` 探头的日间读数仍偏冷，系统开出一张待接单巡检单；`V-03` 同类偏差随全园偏移被扣除，无人接手即自动撤销；`V-04` 曾先被接手，重算转正常后标为待复核并保留原依据。`WX-306` 夜间前七天同班只有两笔，列在「待补采」。
+10. 11:20 记录员接手 `V-06` 的巡检单，页面保留这次判断用过的七天基线、当日读数、全园共同偏移与扣除后的残差。再补入该夜读数，该班由待补采转为按同口径重算。
+
+## 探头巡检与派单
+
+「探头巡检」页按探头给出每个日间/夜间班的判断，不按地块整块跑。每个探头用该日前七天的同班读数取中位数作基线，离散度用 MAD 换算 σ。全园同班各探头的残差中位数视作共同偏移（例如全园降温），先从每个探头的残差里扣除；扣完仍超过 3σ（温度不低于 1.5 °C、湿度不低于 8%）才开巡检单。基线不足三笔、或全园可比探头不足三个时不开单，该班进入「待补采」，补采后自动重算。
+
+| 状态 | 含义 |
+|---|---|
+| 待接单 | 异常已开单，等待记录员接手 |
+| 已接单 | 已接手，按接单当次的判断安排巡检 |
+| 待复核 | 接单后晚到读数把结论改为正常，原接单依据保留 |
+| 已撤销 | 无人接手的误报单自动撤销，或主管复核撤销 |
+
+晚到读数入账后会重算它所在班次，以及随后七天把该日当基线的同班次；已接单的巡检单不会被静默改写。接单与重算并发时由 `pg_advisory_xact_lock` 串行化，以先入账者的结果为准：先接单则随后重算转待复核，先重算则接单读到的是重算后的最新判断。同一探头同一班只有一张巡检单，重复重试或重复提交不会重复开单。每次判断的基线读数、当时读数、共同偏移、扣除后的残差与阈值都保存在 `inspection_evidence`，页面在巡检单下逐条可查。
 
 ## 启动
 
@@ -68,11 +83,12 @@ Docker 服务为 `frontend`、`backend`、`worker`、`db`、`redis`。数据库�
 | `backend/src/app.py`、`backend/src/auth.py`、`backend/src/db.py` | 路由、权限、中间件、连接和审计 |
 | `backend/src/fieldbook.py`、`clusters.py`、`irrigation.py` | 地块采样、标签发布及滴灌与采收事务 |
 | `backend/src/mixture.py`、`backend/src/worker.py` | GaussianMixture 拟合、Redis 通知、数据库恢复与文件证据 |
+| `backend/src/inspection.py` | 同班基线、全园共同偏移、巡检单生命周期与重算 |
 | `backend/scripts/seed_demo.py` | 幂等初始化演示数据 |
 | `frontend/src/api.js`、`main.js`、`ui.js` | 原生 ES modules 的 API、会话与页面状态、共享组件 |
-| `frontend/src/blocks.js`、`clusters.js`、`irrigation.js` | 勘测图、识别批次、排灌、采收表单和账簿 |
+| `frontend/src/blocks.js`、`clusters.js`、`irrigation.js`、`inspection.js` | 勘测图、识别批次、排灌、采收表单、巡检单与判断依据 |
 
-共享枚举 `Role`、`Slot`、`Profile`、`RoundState` 定义于 `backend/src/domain.py`、`frontend/src/domain.js`，数据库约束位于 `backend/migrations/001_field_ledger.sql`。识别批次与标签状态在数据库约束和 `backend/src/clusters.py` 中迁移，在 `frontend/src/domain.js` 中映射显示。
+共享枚举 `Role`、`Slot`、`Profile`、`RoundState`、`ShiftState`、`InspectionState` 定义于 `backend/src/domain.py`、`frontend/src/domain.js`，数据库约束位于 `backend/migrations/001_field_ledger.sql`、`002_inspection_orders.sql`。识别批次与标签状态在数据库约束和 `backend/src/clusters.py` 中迁移，在 `frontend/src/domain.js` 中映射显示。
 
 ## License
 

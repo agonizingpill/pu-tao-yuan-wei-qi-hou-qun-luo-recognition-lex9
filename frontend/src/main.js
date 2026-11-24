@@ -3,12 +3,13 @@ import {roles} from './domain.js';
 import {blockPage} from './blocks.js';
 import {clusterPage} from './clusters.js';
 import {harvestPage, irrigationPage} from './irrigation.js';
+import {inspectionPage} from './inspection.js';
 import {safe, field, formData, numeric, chinaTime} from './ui.js';
 
 const app = document.querySelector('#app');
-const routes = {blocks:'地块与采样', clusters:'微气候群落', irrigation:'灌溉轮次', harvest:'采收观察'};
+const routes = {blocks:'地块与采样', clusters:'微气候群落', irrigation:'灌溉轮次', harvest:'采收观察', inspection:'探头巡检'};
 const currentPage = () => Object.hasOwn(routes, location.hash.slice(1)) ? location.hash.slice(1) : 'blocks';
-const state = {user:null, block:null, run:null, round:null, request:0, poll:null};
+const state = {user:null, block:null, run:null, round:null, inspection:null, request:0, poll:null};
 
 function loginPage() {
   app.innerHTML = `<main class="login-wrap">
@@ -54,6 +55,9 @@ async function render(message='') {
     } else if (page === 'irrigation') {
       const [blocks, rounds] = await Promise.all([api('/blocks'),api('/rounds')]);
       body = irrigationPage(blocks, rounds, rounds.find(r => r.id === state.round), editable, supervisor);
+    } else if (page === 'inspection') {
+      const board = await api('/inspection');
+      body = inspectionPage(board, board.orders.find(o => o.id === state.inspection), editable, supervisor);
     } else {
       const [notes, rounds] = await Promise.all([api('/harvest'),api('/rounds')]);
       body = harvestPage(notes, rounds, editable);
@@ -68,7 +72,7 @@ async function render(message='') {
 
 function logout() {
   session.clear();
-  Object.assign(state, {user:null, block:null, run:null, round:null});
+  Object.assign(state, {user:null, block:null, run:null, round:null, inspection:null});
   render();
 }
 
@@ -124,6 +128,17 @@ async function mutate(action, data, id) {
     case 'harvest':
       await api('/harvest',{...numeric(data,'round_id','brix','berry_count'), observed_at:chinaTime(data.observed_at)});
       return '采收观察已归档。';
+    case 'accept': {
+      const order = await api(`/inspection/orders/${id}/accept`,{});
+      state.inspection = order.id;
+      return `已接手 ${order.block_code} ${order.observed_day} ${order.slot === 'day' ? '日间' : '夜间'} 巡检单。`;
+    }
+    case 'inspect-review':
+      await api(`/inspection/orders/${id}/review`,data);
+      return data.outcome === 'confirm' ? '已维持接单，原判断依据保留。' : '已撤销该接单。';
+    case 'recompute-shift':
+      await api('/inspection/shifts/recompute',data);
+      return '已按现有读数重算该班。';
   }
 }
 
@@ -142,7 +157,7 @@ app.addEventListener('submit', async event => {
 app.addEventListener('click', async event => {
   const button = event.target.closest('button');
   if (!button) return;
-  const {block, round, demo, evidence, logout: exit, reload} = button.dataset;
+  const {block, round, demo, evidence, logout: exit, reload, inspect} = button.dataset;
   if (demo) {
     const form = app.querySelector('form');
     form.elements.username.value = demo;
@@ -152,6 +167,7 @@ app.addEventListener('click', async event => {
   if (exit !== undefined) logout();
   if (block) {state.block = Number(block); await render();}
   if (round) {state.round = Number(round); await render();}
+  if (inspect) {state.inspection = Number(inspect); await render();}
   if (reload !== undefined) await render();
   if (evidence) {
     try {

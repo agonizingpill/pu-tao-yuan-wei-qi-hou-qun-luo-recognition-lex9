@@ -46,6 +46,9 @@ def record_sample(db, data, actor):
     ''', dict(data, actor=actor)).fetchone()
     event(db, actor, 'sample_recorded', block['code'], sample_id=row['id'], slot=row['slot'],
           day=row['observed_day'].isoformat(), source=row['source'])
+    # A late reading changes its own shift and every same-slot baseline that follows it.
+    from .inspection import recompute_after_sample
+    recompute_after_sample(db, row['observed_day'], row['slot'], actor)
     return row
 
 

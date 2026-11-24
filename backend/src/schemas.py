@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -81,3 +81,13 @@ class HarvestInput(Input):
     brix: float = Field(ge=0, le=45, multiple_of=0.1)
     berry_count: int = Field(ge=20, le=500)
     note: Narrative
+
+
+class ShiftInput(Input):
+    observed_day: date
+    slot: Slot
+
+
+class ReviewInput(Input):
+    outcome: Literal['confirm', 'revoke']
+    reason: Narrative
